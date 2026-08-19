@@ -6,7 +6,9 @@ networks:
 
 services:
   keycloak:
-    image: quay.io/keycloak/keycloak:26.3.2-0
+    build:
+      context: ../../keycloak-issuer-state-provider
+    image: forest/keycloak-issuer-state:26.3.2
     container_name: keycloak
     command:
       - start-dev
@@ -16,7 +18,7 @@ services:
       - KC_PROXY_HEADERS=xforwarded
       - KC_HTTP_ENABLED=true
       - KC_HTTP_RELATIVE_PATH=/idp
-      - KC_HOSTNAME=https://localhost/idp
+      - KC_HOSTNAME=https://${EUDI_PUBLIC_HOSTNAME:-localhost}/idp
       - KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true
       - KC_HTTPS_CERTIFICATE_FILE=/etc/ssl/certs/keycloak.tls.crt
       - KC_HTTPS_CERTIFICATE_KEY_FILE=/etc/ssl/certs/keycloak.tls.key
@@ -37,21 +39,22 @@ services:
       - default
 
   pid-issuer:
-    image: ghcr.io/eu-digital-identity-wallet/eudi-srv-pid-issuer:edge
-    pull_policy: always
+    image: forest/eudi-pid-issuer:local
+    pull_policy: never
     container_name: pid-issuer
     depends_on:
       keycloak:
         condition: service_healthy
     environment:
+      - JAVA_TOOL_OPTIONS=-XX:MaxDirectMemorySize=128M
       - SPRING_PROFILES_ACTIVE=insecure
       - SPRING_WEBFLUX_BASE_PATH=/pid-issuer
       - SERVER_PORT=8080
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_OPAQUETOKEN_CLIENT_ID=pid-issuer-srv
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_OPAQUETOKEN_CLIENT_SECRET=zIKAV9DIIIaJCzHCVBPlySgU8KgY68U2
       - SERVER_FORWARD_HEADERS_STRATEGY=FRAMEWORK
-      - ISSUER_PUBLICURL=https://localhost/pid-issuer
-      - ISSUER_AUTHORIZATIONSERVER_PUBLICURL=https://localhost/idp/realms/pid-issuer-realm
+      - ISSUER_PUBLICURL=https://${EUDI_PUBLIC_HOSTNAME:-localhost}/pid-issuer
+      - ISSUER_AUTHORIZATIONSERVER_PUBLICURL=https://${EUDI_PUBLIC_HOSTNAME:-localhost}/idp/realms/pid-issuer-realm
       - ISSUER_AUTHORIZATIONSERVER_METADATA=https://keycloak:8443/idp/realms/pid-issuer-realm/.well-known/openid-configuration
       - ISSUER_AUTHORIZATIONSERVER_INTROSPECTION=https://keycloak:8443/idp/realms/pid-issuer-realm/protocol/openid-connect/token/introspect
       - ISSUER_CREDENTIALRESPONSEENCRYPTION_SUPPORTED=true
@@ -77,6 +80,8 @@ services:
       - ISSUER_KEYCLOAK_USERNAME=admin
       - ISSUER_KEYCLOAK_PASSWORD=password
       - ISSUER_KEYCLOAK_USER_REALM=pid-issuer-realm
+      - ISSUER_FORESTOWNERCOMPANY_BINDING_URL=http://forest-debug-ui:8088/internal/issuance-bindings
+      - ISSUER_FORESTOWNERCOMPANY_BINDING_SECRET=${FOREST_BINDING_SECRET:-forest-binding-dev-secret}
       - ISSUER_DPOP_PROOF_MAX_AGE=PT1M
       - ISSUER_DPOP_CACHE_PURGE_INTERVAL=PT10M
       - ISSUER_DPOP_REALM=pid-issuer

@@ -37,6 +37,9 @@ import eu.europa.ec.eudi.pidissuer.adapter.out.IssuerSigningKey
 import eu.europa.ec.eudi.pidissuer.adapter.out.credential.*
 import eu.europa.ec.eudi.pidissuer.adapter.out.ehic.GetEuropeanHealthInsuranceCardDataMock
 import eu.europa.ec.eudi.pidissuer.adapter.out.ehic.IssueSdJwtVcEuropeanHealthInsuranceCard
+import eu.europa.ec.eudi.pidissuer.adapter.out.forestowner.ForestIssuanceBindingClient
+import eu.europa.ec.eudi.pidissuer.adapter.out.forestowner.GetForestOwnerCompanyCredentialFromKeycloak
+import eu.europa.ec.eudi.pidissuer.adapter.out.forestowner.IssueForestOwnerCompanyCredential
 import eu.europa.ec.eudi.pidissuer.adapter.out.jose.*
 import eu.europa.ec.eudi.pidissuer.adapter.out.learningcredential.IssueLearningCredential
 import eu.europa.ec.eudi.pidissuer.adapter.out.mdl.*
@@ -210,6 +213,7 @@ fun beans(clock: Clock) = BeanRegistrarDsl {
     val enableStatusList = env.getProperty<Boolean>("issuer.statusList.enabled") ?: false
     val enableEhic = env.getProperty<Boolean>("issuer.ehic.enabled") ?: true
     val enableLearningCredential = env.getProperty<Boolean>("issuer.learningCredential.enabled") ?: true
+    val enableForestOwnerCompany = env.getProperty<Boolean>("issuer.forestOwnerCompany.enabled") ?: true
     val trustValidatorServiceUrl = env.getProperty<String>("issuer.trust.service-url")
 
     val issuerKeystore: KeyStore by lazy {
@@ -412,6 +416,27 @@ fun beans(clock: Clock) = BeanRegistrarDsl {
                 admin = Credentials(username = keycloakProperties.username, password = keycloakProperties.password),
             ),
             users = Realm(keycloakProperties.userRealm),
+        )
+    }
+    registerBean {
+        ForestIssuanceBindingClient(
+            webClient = bean(),
+            bindingsUrl = env.getRequiredProperty("issuer.forestOwnerCompany.binding-url"),
+            secret = env.getRequiredProperty("issuer.forestOwnerCompany.binding-secret"),
+        )
+    }
+    registerBean {
+        val keycloakProperties = bean<KeycloakConfigurationProperties>()
+        GetForestOwnerCompanyCredentialFromKeycloak(
+            webClient = bean(),
+            keycloak = Url(keycloakProperties.serverUrl.toExternalForm()),
+            administrationClient = AdministrationClient(
+                realm = Realm(keycloakProperties.authenticationRealm),
+                client = Credentials(username = keycloakProperties.clientId, password = null),
+                admin = Credentials(username = keycloakProperties.username, password = keycloakProperties.password),
+            ),
+            users = Realm(keycloakProperties.userRealm),
+            bindingClient = bean(),
         )
     }
     registerBean<EncodePidInCbor>(lazyInit = true) {
@@ -748,6 +773,41 @@ fun beans(clock: Clock) = BeanRegistrarDsl {
 
                     add(sdJwtVcCompactIssuer)
                     add(sdJwtVcCompactIssuer.asDeferred(bean(), bean(), bean()))
+                }
+
+                if (enableForestOwnerCompany) {
+                    val issuerSigningKey = getIssuerSigningKey("issuer.forestOwnerCompany.signing-key")
+                    val jwtProofsSupportedSigningAlgorithms = env.readNonEmptySet(
+                        "issuer.forestOwnerCompany.jwtProofs.supportedSigningAlgorithms",
+                        JWSAlgorithm::parse,
+                    )
+                    val keyAttestationRequirement =
+                        this@BeanRegistrarDsl.keyAttestationRequirement("issuer.forestOwnerCompany")
+                    val reusePolicy = this@BeanRegistrarDsl.credentialReusePolicy("issuer.forestOwnerCompany")
+                    val validity = Duration.parse(env.getProperty("issuer.forestOwnerCompany.validity", "P30D"))
+                    val digestHashAlgorithm = env.getProperty<HashAlgorithm>(
+                        "issuer.forestOwnerCompany.sdJwtVc.encoder.digests.hashAlgorithm",
+                    ) ?: HashAlgorithm.SHA_256
+                    val notificationsEnabled =
+                        env.getProperty<Boolean>("issuer.forestOwnerCompany.notifications.enabled") ?: true
+
+                    val forestOwnerCompanyIssuer = IssueForestOwnerCompanyCredential.sdJwtVcCompact(
+                        issuerSigningKey = issuerSigningKey,
+                        proofsSupportedSigningAlgorithms = jwtProofsSupportedSigningAlgorithms,
+                        keyAttestationRequirement = keyAttestationRequirement,
+                        credentialIssuerId = issuerPublicUrl,
+                        clock = bean(),
+                        validateProofs = bean(),
+                        getCredential = bean(),
+                        validity = validity,
+                        digestsHashAlgorithm = digestHashAlgorithm,
+                        generateNotificationId = if (notificationsEnabled) bean() else null,
+                        storeIssuedCredentials = bean(),
+                        completeBinding = bean(),
+                        credentialReusePolicy = reusePolicy,
+                    )
+                    add(forestOwnerCompanyIssuer)
+                    add(forestOwnerCompanyIssuer.asDeferred(bean(), bean(), bean()))
                 }
             },
             batchCredentialIssuance = run {

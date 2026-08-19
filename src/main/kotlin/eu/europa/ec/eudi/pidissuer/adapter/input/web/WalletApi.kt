@@ -186,15 +186,19 @@ private suspend fun ServerRequest.authorizationContext(): Either<Throwable, Auth
             val scopes: NonEmptySet<Scope>? = null,
             val clientId: Any? = null,
             val username: Any? = null,
+            val subject: Any? = null,
+            val issuerState: Any? = null,
             val accessToken: AccessToken,
         )
 
-        val (scopes, clientId, username, accessToken) = when (authentication) {
+        val (scopes, clientId, username, subject, issuerState, accessToken) = when (authentication) {
             is DPoPTokenAuthentication ->
                 AuthenticationDetails(
                     authentication.authorities.mapNotNull { fromSpring(it) }.toNonEmptySetOrNull(),
                     authentication.principal?.attributes?.get(OAuth2TokenIntrospectionClaimNames.CLIENT_ID),
                     authentication.name,
+                    authentication.principal?.attributes?.get("sub"),
+                    authentication.principal?.attributes?.get("issuer_state"),
                     authentication.accessToken,
                 )
 
@@ -203,6 +207,8 @@ private suspend fun ServerRequest.authorizationContext(): Either<Throwable, Auth
                     authentication.authorities.mapNotNull { fromSpring(it) }.toNonEmptySetOrNull(),
                     authentication.tokenAttributes[OAuth2TokenIntrospectionClaimNames.CLIENT_ID],
                     authentication.tokenAttributes[OAuth2TokenIntrospectionClaimNames.USERNAME],
+                    authentication.tokenAttributes["sub"],
+                    authentication.tokenAttributes["issuer_state"],
                     BearerAccessToken.parse("${authentication.token.tokenType.value} ${authentication.token.tokenValue}"),
                 )
 
@@ -212,8 +218,12 @@ private suspend fun ServerRequest.authorizationContext(): Either<Throwable, Auth
         requireNotNull(scopes) { "OAuth2 scopes are expected" }
         require(clientId is String) { "Unexpected client_id claim type '${clientId?.let { it::class.java }}'" }
         require(username is String) { "Unexpected username claim type '${username?.let { it::class.java }}'" }
+        require(subject == null || subject is String) { "Unexpected sub claim type '${subject?.let { it::class.java }}'" }
+        require(issuerState == null || issuerState is String) {
+            "Unexpected issuer_state claim type '${issuerState?.let { it::class.java }}'"
+        }
 
-        AuthorizationContext(username, accessToken, scopes, clientId)
+        AuthorizationContext(username, accessToken, scopes, clientId, subject, issuerState)
     }
 
 private suspend fun IssueCredentialResponse.toServerResponse(): ServerResponse =

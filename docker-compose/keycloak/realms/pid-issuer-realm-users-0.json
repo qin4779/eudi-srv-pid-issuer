@@ -56,6 +56,21 @@
         ],
         "birth_given_name": [
           "Tyler"
+        ],
+        "company_name": [
+          "Forest Owner Company GmbH"
+        ],
+        "lei_code": [
+          "529900FORESTOWNER001"
+        ],
+        "euid": [
+          "DE.HRB.123456"
+        ],
+        "pefc_number": [
+          "PEFC-DE-FOREST-001"
+        ],
+        "fsc_number": [
+          "FSC-C123456"
         ]
       },
       "credentials": [

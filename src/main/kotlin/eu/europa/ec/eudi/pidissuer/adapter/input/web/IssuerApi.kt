@@ -38,17 +38,20 @@ class IssuerApi(
 
     private suspend fun handleCreateCredentialsOffer(request: ServerRequest): ServerResponse {
         log.info("Generating Credentials Offer")
-        val credentialIds = request.awaitBodyOrNull<CreateCredentialsOfferRequestTO>()
+        val requestBody = request.awaitBodyOrNull<CreateCredentialsOfferRequestTO>()
+        val credentialIds = requestBody
             ?.credentialIds
             .orEmpty()
             .map(::CredentialConfigurationId)
             .toSet()
 
-        return createCredentialsOffer(credentialIds).fold(
+        val issuerState = requestBody?.issuerState
+
+        return createCredentialsOffer(credentialIds, issuerState = issuerState).fold(
             ifRight = { credentialsOffer ->
                 ServerResponse.ok().json()
                     .bodyValueAndAwait(CreateCredentialsOfferResponseTO.success(credentialsOffer))
-                    .also { log.info("Successfully generated Credentials Offer. URI: '{}'", credentialsOffer) }
+                    .also { log.info("Successfully generated Credentials Offer") }
             },
             ifLeft = { error ->
                 ServerResponse.badRequest().json().bodyValueAndAwait(CreateCredentialsOfferResponseTO.error(error))
@@ -65,6 +68,7 @@ class IssuerApi(
 @Serializable
 private data class CreateCredentialsOfferRequestTO(
     @SerialName("credentialIds") val credentialIds: Set<String>? = null,
+    @SerialName("issuerState") val issuerState: String? = null,
 )
 
 @Serializable

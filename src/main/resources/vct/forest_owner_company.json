@@ -1,0 +1,80 @@
+{
+  "vct": "urn:forest:owner-company:eaa:1",
+  "name": "Forest Owner Company EAA SD-JWT VC Type Metadata",
+  "description": "Electronic attestation of attributes for a forest owner company.",
+  "display": [
+    {
+      "locale": "en",
+      "name": "Forest Owner Company EAA",
+      "description": "Forest Owner Company certificate"
+    }
+  ],
+  "claims": [
+    {
+      "path": ["jti"],
+      "display": [{"locale": "en", "label": "Credential ID"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["iat"],
+      "display": [{"locale": "en", "label": "Issued At"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["exp"],
+      "display": [{"locale": "en", "label": "Expiration Time"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["vct"],
+      "display": [{"locale": "en", "label": "Credential Type"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["iss"],
+      "display": [{"locale": "en", "label": "Issuer"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["cnf"],
+      "display": [{"locale": "en", "label": "Holder Binding"}],
+      "mandatory": true,
+      "sd": "never"
+    },
+    {
+      "path": ["company_name"],
+      "display": [{"locale": "en", "label": "Company Name", "description": "The name of the forest owner company"}],
+      "mandatory": false,
+      "sd": "always"
+    },
+    {
+      "path": ["lei_code"],
+      "display": [{"locale": "en", "label": "LEI Code", "description": "Legal Entity Identifier of the company"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["euid"],
+      "display": [{"locale": "en", "label": "EUID", "description": "European Unique Identifier of the company"}],
+      "mandatory": false,
+      "sd": "always"
+    },
+    {
+      "path": ["pefc_number"],
+      "display": [{"locale": "en", "label": "PEFC Number", "description": "PEFC certificate number"}],
+      "mandatory": true,
+      "sd": "always"
+    },
+    {
+      "path": ["fsc_number"],
+      "display": [{"locale": "en", "label": "FSC Number", "description": "FSC certificate number"}],
+      "mandatory": true,
+      "sd": "always"
+    }
+  ]
+}
