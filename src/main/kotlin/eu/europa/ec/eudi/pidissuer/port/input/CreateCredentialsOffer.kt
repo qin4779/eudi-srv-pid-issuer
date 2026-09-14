@@ -30,6 +30,7 @@ import eu.europa.ec.eudi.pidissuer.domain.CredentialConfigurationId
 import eu.europa.ec.eudi.pidissuer.domain.CredentialIssuerMetaData
 import eu.europa.ec.eudi.pidissuer.port.input.CreateCredentialsOfferError.InvalidCredentialConfigurationId
 import eu.europa.ec.eudi.pidissuer.port.input.CreateCredentialsOfferError.MissingCredentialConfigurationIds
+import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
