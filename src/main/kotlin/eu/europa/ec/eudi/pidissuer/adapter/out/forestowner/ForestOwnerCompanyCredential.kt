@@ -28,13 +28,8 @@ import arrow.fx.coroutines.parMap
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.jwk.JWK
 import com.nimbusds.jwt.SignedJWT
-import com.nimbusds.oauth2.sdk.token.AccessToken
-import com.nimbusds.oauth2.sdk.util.JSONObjectUtils
 import eu.europa.ec.eudi.pidissuer.adapter.out.IssuerSigningKey
 import eu.europa.ec.eudi.pidissuer.adapter.out.jose.ValidateProofs
-import eu.europa.ec.eudi.pidissuer.adapter.out.pid.AdministrationClient
-import eu.europa.ec.eudi.pidissuer.adapter.out.pid.Realm
-import eu.europa.ec.eudi.pidissuer.adapter.out.pid.UserRepresentation
 import eu.europa.ec.eudi.pidissuer.adapter.out.sdJwtVcIssuer
 import eu.europa.ec.eudi.pidissuer.adapter.out.signingAlgorithm
 import eu.europa.ec.eudi.pidissuer.domain.*
@@ -45,16 +40,11 @@ import eu.europa.ec.eudi.pidissuer.port.out.persistence.GenerateNotificationId
 import eu.europa.ec.eudi.pidissuer.port.out.persistence.StoreIssuedCredentials
 import eu.europa.ec.eudi.sdjwt.*
 import eu.europa.ec.eudi.sdjwt.dsl.values.sdJwt
-import io.ktor.http.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import org.slf4j.LoggerFactory
-import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
-import org.springframework.util.LinkedMultiValueMap
-import org.springframework.web.reactive.function.BodyInserters
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.awaitBody
 import java.util.Locale
@@ -98,14 +88,18 @@ class ForestIssuanceBindingClient(
     private val bindingsUrl: String,
     private val secret: String,
 ) : CompleteForestIssuanceBinding {
-    suspend fun claim(issuerState: String, subject: String): String {
+    suspend fun claim(issuerState: String?, subject: String): ClaimedForestIssuanceBinding {
         val response = webClient.post().uri("$bindingsUrl/claim")
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .header("X-Forest-Binding-Secret", secret)
-            .bodyValue(mapOf("issuerState" to issuerState, "subject" to subject))
+            .bodyValue(mapOf("issuerState" to issuerState.orEmpty(), "subject" to subject))
             .retrieve().awaitBody<BindingResponse>()
-        return requireNotNull(response.username) { "Binding response did not contain a username" }
+        return ClaimedForestIssuanceBinding(
+            username = requireNotNull(response.username) { "Binding response did not contain a username" },
+            issuerState = requireNotNull(response.issuerState) { "Binding response did not contain an issuer state" },
+            credentialAttributes = response.credentialAttributes,
+        )
     }
 
     override suspend fun invoke(issuerState: String, subject: String) {
@@ -117,79 +111,51 @@ class ForestIssuanceBindingClient(
             .retrieve().awaitBody<Map<String, Any>>()
     }
 
-    private data class BindingResponse(val username: String? = null)
+    private data class BindingResponse(
+        val username: String? = null,
+        val issuerState: String? = null,
+        val credentialAttributes: Map<String, String> = emptyMap(),
+    )
 }
+
+data class ClaimedForestIssuanceBinding(
+    val username: String,
+    val issuerState: String,
+    val credentialAttributes: Map<String, String>,
+)
 
 fun interface GetForestOwnerCompanyCredential {
     suspend operator fun invoke(context: AuthorizationContext): BoundForestOwnerCompanyCredential
 }
 
-class GetForestOwnerCompanyCredentialFromKeycloak(
-    private val webClient: WebClient,
-    private val keycloak: Url,
-    private val administrationClient: AdministrationClient,
-    private val users: Realm,
+class GetForestOwnerCompanyCredentialFromBinding(
     private val bindingClient: ForestIssuanceBindingClient,
 ) : GetForestOwnerCompanyCredential {
     override suspend fun invoke(context: AuthorizationContext): BoundForestOwnerCompanyCredential {
-        val issuerState = requireNotNull(context.issuerState) { "Missing issuer_state in the access token" }
         val subject = requireNotNull(context.subject) { "Missing sub in the access token" }
-        val boundUsername = bindingClient.claim(issuerState, subject)
-        require(boundUsername == context.username) {
+        val binding = bindingClient.claim(context.issuerState, subject)
+        require(binding.username == context.username) {
             "The mobile Keycloak username does not match the desktop issuance binding"
         }
-        val user = requireNotNull(getUserByUsername(boundUsername)) {
-            "Unable to find Keycloak user '$boundUsername'"
-        }
+        val attributes = binding.credentialAttributes
         fun requiredAttribute(name: String): String =
-            requireNotNull(user.attributes[name]?.firstOrNull()) { "Missing required Keycloak attribute '$name'" }
+            requireNotNull(attributes[name]?.takeIf(String::isNotBlank)) {
+                "Missing required approved EAA attribute '$name'"
+            }
 
         return BoundForestOwnerCompanyCredential(
             credential = ForestOwnerCompanyCredential(
-                companyName = user.attributes["company_name"]?.firstOrNull(),
+                companyName = attributes["company_name"]?.takeIf(String::isNotBlank),
                 leiCode = requiredAttribute("lei_code"),
-                euid = user.attributes["euid"]?.firstOrNull(),
+                euid = attributes["euid"]?.takeIf(String::isNotBlank),
                 pefcNumber = requiredAttribute("pefc_number"),
                 fscNumber = requiredAttribute("fsc_number"),
             ),
-            issuerState = issuerState,
+            issuerState = binding.issuerState,
             subject = subject,
         )
     }
 
-    private suspend fun getUserByUsername(username: String): UserRepresentation? {
-        val accessToken = getAdminAccessToken()
-        val url = URLBuilder().takeFrom(keycloak)
-            .appendPathSegments("admin", "realms", users.value, "users")
-            .apply {
-                parameters.append("username", username)
-                parameters.append("exact", "true")
-            }.build()
-        val users = webClient.get().uri(url.toURI()).accept(MediaType.APPLICATION_JSON)
-            .headers { it[HttpHeaders.AUTHORIZATION] = accessToken.toAuthorizationHeader() }
-            .retrieve().awaitBody<List<UserRepresentation>>()
-        return users.singleOrNull()
-    }
-
-    private suspend fun getAdminAccessToken(): AccessToken {
-        val tokenEndpoint = URLBuilder().takeFrom(keycloak)
-            .appendPathSegments("realms", administrationClient.realm.value, "protocol", "openid-connect", "token")
-            .build()
-        val response = webClient.post().uri(tokenEndpoint.toURI())
-            .contentType(MediaType.APPLICATION_FORM_URLENCODED).accept(MediaType.APPLICATION_JSON)
-            .body(
-                BodyInserters.fromFormData(
-                    LinkedMultiValueMap<String, String>().apply {
-                        add("grant_type", "password")
-                        add("client_id", administrationClient.client.username)
-                        administrationClient.client.password?.let { add("client_secret", it) }
-                        add("username", administrationClient.admin.username)
-                        administrationClient.admin.password?.let { add("password", it) }
-                    },
-                ),
-            ).retrieve().awaitBody<String>()
-        return withContext(Dispatchers.Default) { AccessToken.parse(JSONObjectUtils.parse(response)) }
-    }
 }
 
 private object ForestOwnerCompanyClaims {

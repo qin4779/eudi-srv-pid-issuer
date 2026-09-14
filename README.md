@@ -34,11 +34,10 @@ as an example and requires the use of a suitable OAuth 2.0 server.
 | Feature                                                   | Coverage                                                           |
 |-----------------------------------------------------------|--------------------------------------------------------------------|
 | Authorization Code flow                                   | ✅ Using a suitable OAuth 2.0 server                                |
-| Pre-authorized code flow                                  | ❌                                                                  |
 | mso_mdoc format                                           | ✅                                                                  |
 | SD-JWT-VC format                                          | ✅ Except revocation list & meta                                    |
 | W3C VC DM                                                 | ❌                                                                  |
-| Credential Offer                                          | ✅ `authorization_code` , ❌ `pre-authorized_code`                   |
+| Credential Offer                                          | ✅ `authorization_code`                                               |
 | [Credential Endpoint](#credential-endpoint)               | Yes, including multiple proofs, encryption, repeatable invocations |
 | [Credential Issuer MetaData](#credential-issuer-metadata) | Yes, using `scopes`, and `signed_metadata`                         | 
 | Deferred Endpoint                                         | ✅                                                                  |

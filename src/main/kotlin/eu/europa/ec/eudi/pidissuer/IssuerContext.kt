@@ -38,7 +38,7 @@ import eu.europa.ec.eudi.pidissuer.adapter.out.credential.*
 import eu.europa.ec.eudi.pidissuer.adapter.out.ehic.GetEuropeanHealthInsuranceCardDataMock
 import eu.europa.ec.eudi.pidissuer.adapter.out.ehic.IssueSdJwtVcEuropeanHealthInsuranceCard
 import eu.europa.ec.eudi.pidissuer.adapter.out.forestowner.ForestIssuanceBindingClient
-import eu.europa.ec.eudi.pidissuer.adapter.out.forestowner.GetForestOwnerCompanyCredentialFromKeycloak
+import eu.europa.ec.eudi.pidissuer.adapter.out.forestowner.GetForestOwnerCompanyCredentialFromBinding
 import eu.europa.ec.eudi.pidissuer.adapter.out.forestowner.IssueForestOwnerCompanyCredential
 import eu.europa.ec.eudi.pidissuer.adapter.out.jose.*
 import eu.europa.ec.eudi.pidissuer.adapter.out.learningcredential.IssueLearningCredential
@@ -426,16 +426,7 @@ fun beans(clock: Clock) = BeanRegistrarDsl {
         )
     }
     registerBean {
-        val keycloakProperties = bean<KeycloakConfigurationProperties>()
-        GetForestOwnerCompanyCredentialFromKeycloak(
-            webClient = bean(),
-            keycloak = Url(keycloakProperties.serverUrl.toExternalForm()),
-            administrationClient = AdministrationClient(
-                realm = Realm(keycloakProperties.authenticationRealm),
-                client = Credentials(username = keycloakProperties.clientId, password = null),
-                admin = Credentials(username = keycloakProperties.username, password = keycloakProperties.password),
-            ),
-            users = Realm(keycloakProperties.userRealm),
+        GetForestOwnerCompanyCredentialFromBinding(
             bindingClient = bean(),
         )
     }
@@ -895,7 +886,7 @@ fun beans(clock: Clock) = BeanRegistrarDsl {
         val metaDataApi = MetaDataApi(bean(), bean(), typeMetadata, bean())
         val walletApi = WalletApi(bean(), bean(), bean(), bean(), bean())
         val issuerUi = IssuerUi(credentialsOfferUri, bean(), bean(), bean())
-        val issuerApi = IssuerApi(bean())
+        val issuerApi = IssuerApi(bean(), bean())
         metaDataApi.route.and(walletApi.route).and(issuerUi.router).and(issuerApi.router)
     }
 
@@ -997,7 +988,7 @@ fun beans(clock: Clock) = BeanRegistrarDsl {
 
                 val dpopFilter = run {
                     val dPoPVerifier = DPoPProtectedResourceRequestVerifier(
-                        dpopConfigurationProperties.algorithms,
+                        dpopConfigurationProperties.algorithms.toMutableSet(),
                         dpopConfigurationProperties.proofMaxAge.inWholeSeconds,
                         DefaultDPoPSingleUseChecker(
                             dpopConfigurationProperties.proofMaxAge.inWholeSeconds,

@@ -30,7 +30,6 @@ import eu.europa.ec.eudi.pidissuer.domain.CredentialConfigurationId
 import eu.europa.ec.eudi.pidissuer.domain.CredentialIssuerMetaData
 import eu.europa.ec.eudi.pidissuer.port.input.CreateCredentialsOfferError.InvalidCredentialConfigurationId
 import eu.europa.ec.eudi.pidissuer.port.input.CreateCredentialsOfferError.MissingCredentialConfigurationIds
-import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -69,42 +68,8 @@ private data class AuthorizationCodeTO(
 )
 
 @Serializable
-private enum class InputModeTO {
-    @SerialName("numeric")
-    Numeric,
-
-    @SerialName("text")
-    Text,
-}
-
-@Serializable
-private data class TransactionCodeTO(
-    @SerialName("input_mode") val inputMode: InputModeTO? = null,
-    @SerialName("length") val length: Int? = null,
-    @SerialName("description") val description: String? = null,
-) {
-    init {
-        require(length == null || length > 0) {
-            "Length if provided should positive number"
-        }
-        require(description == null || description.length <= 300) {
-            "Description is provided should dont exceed 300 characters"
-        }
-    }
-}
-
-@Serializable
-private data class PreAuthorizedCodeTO(
-    @SerialName("pre-authorized_code") @Required val preAuthorizedCode: String,
-    @SerialName("tx_code") val transactionCode: TransactionCodeTO? = null,
-    @SerialName("interval") val interval: Long? = null,
-    @SerialName("authorization_server") val authorizationServer: String? = null,
-)
-
-@Serializable
 private data class GrantsTO(
     @SerialName("authorization_code") val authorizationCode: AuthorizationCodeTO? = null,
-    @SerialName("urn:ietf:params:oauth:grant-type:pre-authorized_code") val preAuthorizedCode: PreAuthorizedCodeTO? = null,
 )
 
 /**
@@ -132,11 +97,8 @@ class CreateCredentialsOffer(
         issuerState: String? = null,
     ): Either<CreateCredentialsOfferError, URI> = either {
         require(issuerState == null || issuerState.isNotBlank()) { "issuerState cannot be blank" }
-        val offer = run {
-            val credentialConfigurationIds =
-                validate(metadata, unvalidatedCredentialConfigurationIds)
-            authorizationCodeGrantOffer(metadata, credentialConfigurationIds, issuerState)
-        }
+        val credentialConfigurationIds = validate(metadata, unvalidatedCredentialConfigurationIds)
+        val offer = authorizationCodeGrantOffer(metadata, credentialConfigurationIds, issuerState)
 
         Either.catch {
             Uri.parse(customCredentialsOfferUri ?: credentialsOfferUri)

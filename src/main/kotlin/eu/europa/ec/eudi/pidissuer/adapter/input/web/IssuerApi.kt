@@ -18,6 +18,12 @@ package eu.europa.ec.eudi.pidissuer.adapter.input.web
 import eu.europa.ec.eudi.pidissuer.domain.CredentialConfigurationId
 import eu.europa.ec.eudi.pidissuer.port.input.CreateCredentialsOffer
 import eu.europa.ec.eudi.pidissuer.port.input.CreateCredentialsOfferError
+import eu.europa.ec.eudi.pidissuer.port.out.qr.Dimensions
+import eu.europa.ec.eudi.pidissuer.port.out.qr.Format
+import eu.europa.ec.eudi.pidissuer.port.out.qr.GenerateQqCode
+import eu.europa.ec.eudi.pidissuer.port.out.qr.Pixels
+import eu.europa.ec.eudi.pidissuer.adapter.out.util.getOrThrow
+import kotlin.io.encoding.Base64
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
@@ -27,6 +33,7 @@ import java.net.URI
 
 class IssuerApi(
     private val createCredentialsOffer: CreateCredentialsOffer,
+    private val generateQrCode: GenerateQqCode,
 ) {
     val router: RouterFunction<ServerResponse> = coRouter {
         POST(
@@ -46,11 +53,18 @@ class IssuerApi(
             .toSet()
 
         val issuerState = requestBody?.issuerState
-
-        return createCredentialsOffer(credentialIds, issuerState = issuerState).fold(
+        return createCredentialsOffer(
+            credentialIds,
+            issuerState = issuerState,
+        ).fold(
             ifRight = { credentialsOffer ->
+                val qrCode = generateQrCode(
+                    credentialsOffer,
+                    Format.PNG,
+                    Dimensions(Pixels(300u), Pixels(300u)),
+                ).getOrThrow()
                 ServerResponse.ok().json()
-                    .bodyValueAndAwait(CreateCredentialsOfferResponseTO.success(credentialsOffer))
+                    .bodyValueAndAwait(CreateCredentialsOfferResponseTO.success(credentialsOffer, qrCode))
                     .also { log.info("Successfully generated Credentials Offer") }
             },
             ifLeft = { error ->
@@ -74,11 +88,15 @@ private data class CreateCredentialsOfferRequestTO(
 @Serializable
 private data class CreateCredentialsOfferResponseTO(
     @SerialName("credentialsOffer") val credentialsOffer: String? = null,
+    @SerialName("qrCodeBase64") val qrCodeBase64: String? = null,
     @SerialName("error") val error: String? = null,
 ) {
     companion object {
-        fun success(credentialsOffer: URI) =
-            CreateCredentialsOfferResponseTO(credentialsOffer = credentialsOffer.toString())
+        fun success(credentialsOffer: URI, qrCode: ByteArray) =
+            CreateCredentialsOfferResponseTO(
+                credentialsOffer = credentialsOffer.toString(),
+                qrCodeBase64 = Base64.encode(qrCode),
+            )
 
         fun error(error: CreateCredentialsOfferError) =
             CreateCredentialsOfferResponseTO(error = error::class.java.simpleName)
