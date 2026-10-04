@@ -30,7 +30,7 @@ import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jose.util.X509CertChainUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import eu.europa.ec.eudi.pidissuer.adapter.out.mdl.mobileDrivingLicenceV1
+import eu.europa.ec.eudi.pidissuer.adapter.out.pid.pidMsoMdocV1
 import eu.europa.ec.eudi.pidissuer.adapter.out.trust.Ignored
 import eu.europa.ec.eudi.pidissuer.domain.*
 import eu.europa.ec.eudi.pidissuer.domain.Clock
@@ -48,7 +48,7 @@ internal class ValidateJwtProofTest {
     private val clock = Clock.System
     private val verifyKeyAttestation = VerifyKeyAttestation(isTrustedKeyAttestationIssuer = IsTrustedKeyAttestationIssuer.Ignored)
     private val validateJwtProof = ValidateJwtProof(issuer, verifyKeyAttestation)
-    private val credentialConfiguration = mobileDrivingLicenceV1(
+    private val credentialConfiguration = pidMsoMdocV1(
         CoseAlgorithm(-7),
         checkNotNull(ECDSASigner.SUPPORTED_ALGORITHMS.toNonEmptySetOrNull()),
         KeyAttestationRequirement.NotRequired,
@@ -236,7 +236,7 @@ internal class ValidateJwtProofTest {
         val result =
             validateJwtProof(
                 UnvalidatedProof.Jwt(signedJwt.serialize()),
-                mobileDrivingLicenceV1(
+                pidMsoMdocV1(
                     CoseAlgorithm(-7),
                     nonEmptySetOf(JWSAlgorithm.ES512),
                     KeyAttestationRequirement.NotRequired,

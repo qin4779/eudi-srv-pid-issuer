@@ -35,14 +35,14 @@ import eu.europa.ec.eudi.pidissuer.adapter.input.web.WalletApi
 import eu.europa.ec.eudi.pidissuer.adapter.input.web.security.*
 import eu.europa.ec.eudi.pidissuer.adapter.out.IssuerSigningKey
 import eu.europa.ec.eudi.pidissuer.adapter.out.credential.*
-import eu.europa.ec.eudi.pidissuer.adapter.out.ehic.GetEuropeanHealthInsuranceCardDataMock
-import eu.europa.ec.eudi.pidissuer.adapter.out.ehic.IssueSdJwtVcEuropeanHealthInsuranceCard
-import eu.europa.ec.eudi.pidissuer.adapter.out.forestowner.ForestIssuanceBindingClient
-import eu.europa.ec.eudi.pidissuer.adapter.out.forestowner.GetForestOwnerCompanyCredentialFromBinding
-import eu.europa.ec.eudi.pidissuer.adapter.out.forestowner.IssueForestOwnerCompanyCredential
+import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.CredentialIssuanceOverrides
+import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.CredentialStyle
+import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.CredentialSchemaLoader
+import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.CredentialSchemaSource
+import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.ForestIssuanceBindingClient
+import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.GetGeneralCredentialFromBinding
+import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.IssueGeneralCredentialSdJwtVc
 import eu.europa.ec.eudi.pidissuer.adapter.out.jose.*
-import eu.europa.ec.eudi.pidissuer.adapter.out.learningcredential.IssueLearningCredential
-import eu.europa.ec.eudi.pidissuer.adapter.out.mdl.*
 import eu.europa.ec.eudi.pidissuer.adapter.out.persistence.InMemoryDeferredCredentialRepository
 import eu.europa.ec.eudi.pidissuer.adapter.out.persistence.InMemoryIssuedCredentialRepository
 import eu.europa.ec.eudi.pidissuer.adapter.out.pid.*
@@ -114,7 +114,6 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
-import eu.europa.ec.eudi.pidissuer.adapter.out.ehic.IssuingCountry as EhicIssuingCountry
 
 private val log = LoggerFactory.getLogger(PidIssuerApplication::class.java)
 
@@ -206,14 +205,10 @@ private const val keystoreDefaultLocation = "/keystore.jks"
 
 fun beans(clock: Clock) = BeanRegistrarDsl {
     val issuerPublicUrl = env.readRequiredUrl("issuer.publicUrl", removeTrailingSlash = true)
-    val enableMobileDrivingLicence = env.getProperty("issuer.mdl.enabled", true)
     val enableMsoMdocPid = env.getProperty<Boolean>("issuer.pid.mso_mdoc.enabled") ?: true
     val enableSdJwtVcPid = env.getProperty<Boolean>("issuer.pid.sd_jwt_vc.enabled") ?: true
     val credentialsOfferUri = env.getRequiredProperty("issuer.credentialOffer.uri")
     val enableStatusList = env.getProperty<Boolean>("issuer.statusList.enabled") ?: false
-    val enableEhic = env.getProperty<Boolean>("issuer.ehic.enabled") ?: true
-    val enableLearningCredential = env.getProperty<Boolean>("issuer.learningCredential.enabled") ?: true
-    val enableForestOwnerCompany = env.getProperty<Boolean>("issuer.forestOwnerCompany.enabled") ?: true
     val trustValidatorServiceUrl = env.getProperty<String>("issuer.trust.service-url")
 
     val issuerKeystore: KeyStore by lazy {
@@ -421,24 +416,12 @@ fun beans(clock: Clock) = BeanRegistrarDsl {
     registerBean {
         ForestIssuanceBindingClient(
             webClient = bean(),
-            bindingsUrl = env.getRequiredProperty("issuer.forestOwnerCompany.binding-url"),
-            secret = env.getRequiredProperty("issuer.forestOwnerCompany.binding-secret"),
-        )
-    }
-    registerBean {
-        GetForestOwnerCompanyCredentialFromBinding(
-            bindingClient = bean(),
+            bindingsUrl = env.getRequiredProperty("issuer.forest.binding-url"),
+            secret = env.getRequiredProperty("issuer.forest.binding-secret"),
         )
     }
     registerBean<EncodePidInCbor>(lazyInit = true) {
         DefaultEncodePidInCbor(getIssuerSigningKey("issuer.pid.mso_mdoc.signing-key"))
-    }
-
-    registerBean {
-        GetMobileDrivingLicenceDataMock()
-    }
-    registerBean<EncodeMobileDrivingLicenceInCbor>(lazyInit = true) {
-        DefaultEncodeMobileDrivingLicenceInCbor(getIssuerSigningKey("issuer.mdl.signing-key"))
     }
 
     registerBean { DefaultGenerateQrCode() }
@@ -449,21 +432,6 @@ fun beans(clock: Clock) = BeanRegistrarDsl {
     }
     registerBean {
         val resolvers = buildMap<CredentialIdentifier, CredentialRequestFactory> {
-            if (enableMobileDrivingLicence) {
-                this[CredentialIdentifier(MobileDrivingLicenceV1Scope.value)] =
-                    { identifier, unvalidatedProofs, requestedResponseEncryption ->
-                        ResolvedCredentialRequest(
-                            MobileDrivingLicenceV1CredentialConfigurationId,
-                            MsoMdocCredentialRequest(
-                                unvalidatedProofs = unvalidatedProofs,
-                                credentialResponseEncryption = requestedResponseEncryption,
-                                docType = MobileDrivingLicenceV1DocType,
-                            ),
-                            identifier,
-                        )
-                    }
-            }
-
             if (enableMsoMdocPid) {
                 this[CredentialIdentifier(PidMsoMdocScope.value)] =
                     { identifier, unvalidatedProofs, requestedResponseEncryption ->
@@ -649,156 +617,66 @@ fun beans(clock: Clock) = BeanRegistrarDsl {
                     add(issueSdJwtVcPid.asDeferred(bean(), bean(), clock))
                 }
 
-                if (enableMobileDrivingLicence) {
-                    val duration = env.duration("issuer.mdl.mso_mdoc.encoder.duration") ?: 5.days
-                    val jwtProofsSupportedSigningAlgorithms = env.readNonEmptySet(
-                        "issuer.mdl.jwtProofs.supportedSigningAlgorithms",
-                        JWSAlgorithm::parse,
-                    )
-                    val keyAttestationRequirement = this@BeanRegistrarDsl.keyAttestationRequirement("issuer.mdl")
-                    val mdlIssuerReusePolicy = this@BeanRegistrarDsl.credentialReusePolicy("issuer.mdl")
-                    val mdlIssuer = IssueMobileDrivingLicence(
-                        getMobileDrivingLicenceData = bean(),
-                        encodeMobileDrivingLicenceInCbor = bean(),
-                        notificationsEnabled = env.getProperty<Boolean>("issuer.mdl.notifications.enabled") ?: true,
-                        generateNotificationId = bean(),
-                        clock = clock,
-                        validityDuration = duration,
-                        storeIssuedCredentials = bean(),
-                        validateProofs = bean(),
-                        jwtProofsSupportedSigningAlgorithms = jwtProofsSupportedSigningAlgorithms,
-                        keyAttestationRequirement = keyAttestationRequirement,
-                        generateStatusListToken = beanProvider<GenerateStatusListToken>().ifAvailable,
-                        credentialReusePolicy = mdlIssuerReusePolicy,
-                    )
-                    add(mdlIssuer)
-                    add(mdlIssuer.asDeferred(bean(), bean(), clock))
-                }
+                // Every other credential type (Forest Owner Company and anything
+                // added later) is schema-driven: each unmodified JSON Schema under
+                // issuer.credential-schemas.location is one credential, instead of a
+                // new Kotlin class. Issuance settings fall back to
+                // issuer.credential-defaults.*. See adapter/out/generalcredential/.
+                val defaultSigningKey by lazy { getIssuerSigningKey("$CREDENTIAL_DEFAULTS.signing-key") }
+                val registeredConfigurationIds = mutableMapOf<CredentialConfigurationId, String>()
+                env.generalCredentialSettings().forEach { settings ->
+                    if (env.getPropertyOrEnvVariable<Boolean>(settings.keyFor("enabled")) ?: true) {
+                        val schema = CredentialSchemaLoader.load(settings.source.resource, settings.overrides)
+                        registeredConfigurationIds.put(schema.credentialConfigurationId, settings.source.name)?.let { other ->
+                            error(
+                                "Credential schemas '$other' and '${settings.source.name}' both resolve to " +
+                                    "'${schema.credentialConfigurationId.value}'; override vct or credential-configuration-id for one",
+                            )
+                        }
+                        log.info(
+                            "Registering schema-driven credential '{}' (vct {}, scope {}) from {}",
+                            schema.credentialConfigurationId.value,
+                            schema.vct.value,
+                            schema.scope.value,
+                            settings.source.resource.description,
+                        )
+                        val issuerSigningKey =
+                            if (settings.overrides("signing-key")) getIssuerSigningKey(settings.keyFor("signing-key"))
+                            else defaultSigningKey
+                        val jwtProofsSupportedSigningAlgorithms = env.readNonEmptySet(
+                            settings.keyFor("jwtProofs.supportedSigningAlgorithms"),
+                            JWSAlgorithm::parse,
+                        )
+                        val keyAttestationRequirement =
+                            this@BeanRegistrarDsl.keyAttestationRequirement(settings.prefixFor("key_attestations.required"))
+                        val reusePolicy = this@BeanRegistrarDsl.credentialReusePolicy(settings.prefixFor("reusePolicy.enabled"))
+                        val validity = Duration.parse(env.getPropertyOrEnvVariable(settings.keyFor("validity")) ?: "P30D")
+                        val digestHashAlgorithm = env.getPropertyOrEnvVariable<HashAlgorithm>(
+                            settings.keyFor("sdJwtVc.encoder.digests.hashAlgorithm"),
+                        ) ?: HashAlgorithm.SHA_256
+                        val notificationsEnabled =
+                            env.getPropertyOrEnvVariable<Boolean>(settings.keyFor("notifications.enabled")) ?: true
 
-                if (enableEhic) {
-                    val digestHashAlgorithm = env.getProperty<HashAlgorithm>(
-                        "issuer.ehic.encoder.digests.hashAlgorithm",
-                    ) ?: HashAlgorithm.SHA_256
-                    val validity = Duration.parse(env.getProperty("issuer.ehic.validity", "P30D"))
-                    val ehicNotificationsEnabled = env.getProperty<Boolean>("issuer.ehic.notifications.enabled") ?: true
-                    val issuingCountry = EhicIssuingCountry(env.getProperty("issuer.ehic.issuingCountry", "GR"))
-                    val jwtProofsSupportedSigningAlgorithms = env.readNonEmptySet(
-                        "issuer.ehic.jwtProofs.supportedSigningAlgorithms",
-                        JWSAlgorithm::parse,
-                    )
-                    val keyAttestationRequirement = this@BeanRegistrarDsl.keyAttestationRequirement("issuer.ehic")
-                    val ehicReusePolicy = this@BeanRegistrarDsl.credentialReusePolicy("issuer.ehic")
-
-                    val issuerSigningKey = getIssuerSigningKey("issuer.ehic.signing-key")
-                    val ehicJwsJsonFlattenedIssuer = IssueSdJwtVcEuropeanHealthInsuranceCard.jwsJsonFlattened(
-                        issuerSigningKey = issuerSigningKey,
-                        digestsHashAlgorithm = digestHashAlgorithm,
-                        credentialIssuerId = issuerPublicUrl,
-                        clock = bean(),
-                        validity = validity,
-                        validateProofs = bean(),
-                        getEuropeanHealthInsuranceCardData = GetEuropeanHealthInsuranceCardDataMock(
-                            bean(),
-                            issuingCountry,
-                        ),
-                        notificationsEnabled = ehicNotificationsEnabled,
-                        generateNotificationId = bean(),
-                        storeIssuedCredentials = bean(),
-                        jwtProofsSupportedSigningAlgorithms = jwtProofsSupportedSigningAlgorithms,
-                        keyAttestationRequirement = keyAttestationRequirement,
-                        credentialReusePolicy = ehicReusePolicy,
-                    )
-                    add(ehicJwsJsonFlattenedIssuer)
-                    add(ehicJwsJsonFlattenedIssuer.asDeferred(bean(), bean(), clock))
-
-                    val ehicCompactIssuer = IssueSdJwtVcEuropeanHealthInsuranceCard.compact(
-                        issuerSigningKey = issuerSigningKey,
-                        digestsHashAlgorithm = digestHashAlgorithm,
-                        credentialIssuerId = issuerPublicUrl,
-                        clock = bean(),
-                        validity = validity,
-                        validateProofs = bean(),
-                        getEuropeanHealthInsuranceCardData = GetEuropeanHealthInsuranceCardDataMock(
-                            bean(),
-                            issuingCountry,
-                        ),
-                        notificationsEnabled = ehicNotificationsEnabled,
-                        generateNotificationId = bean(),
-                        storeIssuedCredentials = bean(),
-                        jwtProofsSupportedSigningAlgorithms = jwtProofsSupportedSigningAlgorithms,
-                        keyAttestationRequirement = keyAttestationRequirement,
-                        credentialReusePolicy = ehicReusePolicy,
-                    )
-                    add(ehicCompactIssuer)
-                    add(ehicCompactIssuer.asDeferred(bean(), bean(), bean()))
-                }
-
-                if (enableLearningCredential) {
-                    val issuerSigningKey = getIssuerSigningKey("issuer.learningCredential.signing-key")
-                    val jwtProofsSupportedSigningAlgorithms = env.readNonEmptySet(
-                        "issuer.learningCredential.jwtProofs.supportedSigningAlgorithms",
-                        JWSAlgorithm::parse,
-                    )
-                    val keyAttestationRequirement = this@BeanRegistrarDsl.keyAttestationRequirement("issuer.learningCredential")
-                    val learningCredentialReusePolicy = this@BeanRegistrarDsl.credentialReusePolicy("issuer.learningCredential")
-                    val validity = Duration.parse(env.getProperty("issuer.learningCredential.validity", "P30D"))
-                    val digestHashAlgorithm = env.getProperty<HashAlgorithm>(
-                        "issuer.learningCredential.sdJwtVc.encoder.digests.hashAlgorithm",
-                    ) ?: HashAlgorithm.SHA_256
-
-                    val notificationsEnabled = env.getProperty<Boolean>("issuer.learningCredential.notifications.enabled") ?: true
-
-                    val sdJwtVcCompactIssuer = IssueLearningCredential.sdJwtVcCompact(
-                        issuerSigningKey,
-                        jwtProofsSupportedSigningAlgorithms,
-                        keyAttestationRequirement,
-                        bean(),
-                        bean(),
-                        bean(),
-                        validity,
-                        digestHashAlgorithm,
-                        if (notificationsEnabled) bean() else null,
-                        bean(),
-                        learningCredentialReusePolicy,
-                    )
-
-                    add(sdJwtVcCompactIssuer)
-                    add(sdJwtVcCompactIssuer.asDeferred(bean(), bean(), bean()))
-                }
-
-                if (enableForestOwnerCompany) {
-                    val issuerSigningKey = getIssuerSigningKey("issuer.forestOwnerCompany.signing-key")
-                    val jwtProofsSupportedSigningAlgorithms = env.readNonEmptySet(
-                        "issuer.forestOwnerCompany.jwtProofs.supportedSigningAlgorithms",
-                        JWSAlgorithm::parse,
-                    )
-                    val keyAttestationRequirement =
-                        this@BeanRegistrarDsl.keyAttestationRequirement("issuer.forestOwnerCompany")
-                    val reusePolicy = this@BeanRegistrarDsl.credentialReusePolicy("issuer.forestOwnerCompany")
-                    val validity = Duration.parse(env.getProperty("issuer.forestOwnerCompany.validity", "P30D"))
-                    val digestHashAlgorithm = env.getProperty<HashAlgorithm>(
-                        "issuer.forestOwnerCompany.sdJwtVc.encoder.digests.hashAlgorithm",
-                    ) ?: HashAlgorithm.SHA_256
-                    val notificationsEnabled =
-                        env.getProperty<Boolean>("issuer.forestOwnerCompany.notifications.enabled") ?: true
-
-                    val forestOwnerCompanyIssuer = IssueForestOwnerCompanyCredential.sdJwtVcCompact(
-                        issuerSigningKey = issuerSigningKey,
-                        proofsSupportedSigningAlgorithms = jwtProofsSupportedSigningAlgorithms,
-                        keyAttestationRequirement = keyAttestationRequirement,
-                        credentialIssuerId = issuerPublicUrl,
-                        clock = bean(),
-                        validateProofs = bean(),
-                        getCredential = bean(),
-                        validity = validity,
-                        digestsHashAlgorithm = digestHashAlgorithm,
-                        generateNotificationId = if (notificationsEnabled) bean() else null,
-                        storeIssuedCredentials = bean(),
-                        completeBinding = bean(),
-                        credentialReusePolicy = reusePolicy,
-                    )
-                    add(forestOwnerCompanyIssuer)
-                    add(forestOwnerCompanyIssuer.asDeferred(bean(), bean(), bean()))
+                        val generalCredentialIssuer = IssueGeneralCredentialSdJwtVc.sdJwtVcCompact(
+                            schema = schema,
+                            issuerSigningKey = issuerSigningKey,
+                            proofsSupportedSigningAlgorithms = jwtProofsSupportedSigningAlgorithms,
+                            keyAttestationRequirement = keyAttestationRequirement,
+                            credentialIssuerId = issuerPublicUrl,
+                            clock = bean(),
+                            validateProofs = bean(),
+                            getCredential = GetGeneralCredentialFromBinding(bean(), schema),
+                            validity = validity,
+                            digestsHashAlgorithm = digestHashAlgorithm,
+                            generateNotificationId = if (notificationsEnabled) bean() else null,
+                            storeIssuedCredentials = bean(),
+                            completeBinding = bean(),
+                            credentialReusePolicy = reusePolicy,
+                            style = settings.style,
+                        )
+                        add(generalCredentialIssuer)
+                        add(generalCredentialIssuer.asDeferred(bean(), bean(), bean()))
+                    }
                 }
             },
             batchCredentialIssuance = run {
@@ -1385,6 +1263,60 @@ private suspend fun WebClient.authorizationServerSupportedDPoPJWSAlgorithms(auth
         log.warn("Unable to fetch Authorization Server metadata. DPoP support will be disabled.", it)
         null
     }
+
+private const val CREDENTIAL_SCHEMAS_LOCATION = "issuer.credential-schemas.location"
+private const val CREDENTIAL_DEFAULTS = "issuer.credential-defaults"
+
+/**
+ * Configuration of the schema-driven credential read from [source]. Nothing is
+ * required: each setting is read from `issuer.credential-overrides[<file name
+ * without .json>]` when that sets it, otherwise from [CREDENTIAL_DEFAULTS].
+ */
+private class GeneralCredentialSettings(private val env: Environment, val source: CredentialSchemaSource) {
+    private val prefix = "issuer.credential-overrides[${source.name}]"
+
+    val overrides = CredentialIssuanceOverrides(
+        vct = property("vct"),
+        credentialConfigurationId = property("credential-configuration-id"),
+        scope = property("scope"),
+        displayName = property("display-name"),
+    )
+
+    /**
+     * Wallet card styling from `display.*` (logo, background colour and image,
+     * text colour), each falling back to [CREDENTIAL_DEFAULTS] like any other key.
+     */
+    val style: CredentialStyle
+        get() {
+            fun display(key: String): String? = env.getPropertyOrEnvVariable(keyFor("display.$key"))?.takeIf(String::isNotBlank)
+            return CredentialStyle(
+                locales = display("locales")?.split(',')?.map { Locale.forLanguageTag(it.trim()) } ?: listOf(Locale.ENGLISH),
+                logo = display("logo.uri")?.let { ImageUri(URI.create(it), display("logo.alternative-text")) },
+                backgroundColor = display("background-color"),
+                backgroundImage = display("background-image.uri")?.let {
+                    BackgroundImage(URI.create(it), display("background-image.alternative-text"))
+                },
+                textColor = display("text-color"),
+            )
+        }
+
+    /** Whether this entry sets [key] itself instead of inheriting it from the defaults. */
+    fun overrides(key: String): Boolean = property(key) != null
+
+    fun prefixFor(key: String): String = if (overrides(key)) prefix else CREDENTIAL_DEFAULTS
+
+    fun keyFor(key: String): String = "${prefixFor(key)}.$key"
+
+    private fun property(key: String): String? =
+        env.getPropertyOrEnvVariable("$prefix.$key")?.takeIf(String::isNotBlank)
+}
+
+private fun Environment.generalCredentialSettings(): List<GeneralCredentialSettings> {
+    val location = getProperty(CREDENTIAL_SCHEMAS_LOCATION) ?: "file:/schemas/"
+    val sources = CredentialSchemaLoader.discover(location)
+    if (sources.isEmpty()) log.warn("No credential schemas found under {} ({})", location, CREDENTIAL_SCHEMAS_LOCATION)
+    return sources.map { GeneralCredentialSettings(this, it) }
+}
 
 private fun Environment.getPropertyOrEnvVariable(property: String): String? {
     return getProperty(property) ?: getProperty(toEnvironmentVariable(property))

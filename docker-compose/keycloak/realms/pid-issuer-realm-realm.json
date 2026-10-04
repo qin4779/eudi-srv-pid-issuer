@@ -320,7 +320,6 @@
           "attributes": {}
         }
       ],
-      "wallet-dev": [],
       "pid-issuer-srv": [
         {
           "id": "3dc8b2ac-0fbc-40cf-9aae-20d3505ef434",
@@ -332,7 +331,6 @@
         }
       ],
       "security-admin-console": [],
-      "eudiw": [],
       "admin-cli": [],
       "account-console": [],
       "broker": [
@@ -691,67 +689,6 @@
       "optionalClientScopes": []
     },
     {
-      "id": "39017805-7617-4e45-ba0a-2b6ea2c9f068",
-      "clientId": "eudiw",
-      "name": "EUDI Wallet",
-      "description": "",
-      "rootUrl": "",
-      "adminUrl": "",
-      "baseUrl": "",
-      "surrogateAuthRequired": false,
-      "enabled": true,
-      "alwaysDisplayInConsole": true,
-      "clientAuthenticatorType": "client-secret",
-      "redirectUris": [
-        "urn:ietf:wg:oauth:2.0:oob",
-        "eudi-openid4ci://authorize",
-        "eudi-issuance://authorization",
-        "eu.europa.ec.euidi://authorization"
-      ],
-      "webOrigins": [
-        "/*"
-      ],
-      "notBefore": 0,
-      "bearerOnly": false,
-      "consentRequired": false,
-      "standardFlowEnabled": true,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": false,
-      "publicClient": true,
-      "frontchannelLogout": true,
-      "protocol": "openid-connect",
-      "attributes": {
-        "oauth2.device.authorization.grant.enabled": "false",
-        "access.token.signed.response.alg": "ES256",
-        "backchannel.logout.revoke.offline.tokens": "false",
-        "use.refresh.tokens": "true",
-        "oidc.ciba.grant.enabled": "false",
-        "id.token.signed.response.alg": "ES256",
-        "backchannel.logout.session.required": "true",
-        "client_credentials.use_refresh_token": "false",
-        "tls.client.certificate.bound.access.tokens": "false",
-        "require.pushed.authorization.requests": "true",
-        "acr.loa.map": "{}",
-        "display.on.consent.screen": "false",
-        "pkce.code.challenge.method": "S256",
-        "token.response.type.bearer.lower-case": "false"
-      },
-      "authenticationFlowBindingOverrides": {},
-      "fullScopeAllowed": true,
-      "nodeReRegistrationTimeout": -1,
-      "defaultClientScopes": [
-        "web-origins"
-      ],
-      "optionalClientScopes": [
-        "eu.europa.ec.eudi.pid_vc_sd_jwt",
-        "eu.europa.ec.eudi.pid_mso_mdoc",
-        "org.iso.18013.5.1.mDL",
-        "urn:eudi:ehic:1:dc+sd-jwt",
-        "urn:eu.europa.ec.eudi:learning:credential:1:dc+sd-jwt"
-      ]
-    },
-    {
       "id": "bde36dee-e6d6-4112-b540-23748761a95d",
       "clientId": "pid-issuer-srv",
       "name": "PID Issuer service",
@@ -877,13 +814,13 @@
           },
           {
             "id": "00ac333b-fe33-412d-baa6-b17810a9d2bc",
-            "name": "Accessed via wallet-dev or wallet client",
-            "description": "Constraints access to clients : wallet and wallet-dev",
+            "name": "Accessed via the wallet client",
+            "description": "Constraints access to the Forest-you wallet client (eudiw-abca)",
             "type": "client",
             "logic": "POSITIVE",
             "decisionStrategy": "UNANIMOUS",
             "config": {
-              "clients": "[\"wallet-dev\",\"eudiw\",\"08002422-4c1e-4cd2-8c47-1b1dd61951c5\"]"
+              "clients": "[\"eudiw-abca\"]"
             }
           },
           {
@@ -907,7 +844,7 @@
             "config": {
               "defaultResourceType": "",
               "resources": "[\"credentialEndpoint\"]",
-              "applyPolicies": "[\"Accessed via wallet-dev or wallet client\",\"User must be a natural person with eID\",\"pid_mso_mdoc scope required\"]"
+              "applyPolicies": "[\"Accessed via the wallet client\",\"User must be a natural person with eID\",\"pid_mso_mdoc scope required\"]"
             }
           }
         ],
@@ -1006,65 +943,10 @@
       "optionalClientScopes": []
     },
     {
-      "id": "bb85312f-2746-42c4-92db-7eb46b8c9437",
-      "clientId": "08002422-4c1e-4cd2-8c47-1b1dd61951c5",
-      "name": "SPRIND EUDI Wallet Sandbox",
-      "description": "Public OpenID4VCI client used by the SPRIND sandbox wallet",
-      "rootUrl": "",
-      "adminUrl": "",
-      "baseUrl": "",
-      "surrogateAuthRequired": false,
-      "enabled": true,
-      "alwaysDisplayInConsole": true,
-      "clientAuthenticatorType": "client-secret",
-      "redirectUris": [
-        "org.sprind.wallet.sandbox:/authorization"
-      ],
-      "webOrigins": [
-        "/*"
-      ],
-      "notBefore": 0,
-      "bearerOnly": false,
-      "consentRequired": false,
-      "standardFlowEnabled": true,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": false,
-      "publicClient": true,
-      "frontchannelLogout": false,
-      "protocol": "openid-connect",
-      "attributes": {
-        "oidc.ciba.grant.enabled": "false",
-        "backchannel.logout.session.required": "false",
-        "post.logout.redirect.uris": "+",
-        "oauth2.device.authorization.grant.enabled": "false",
-        "display.on.consent.screen": "false",
-        "backchannel.logout.revoke.offline.tokens": "false",
-        "require.pushed.authorization.requests": "true",
-        "pkce.code.challenge.method": "S256"
-      },
-      "authenticationFlowBindingOverrides": {
-      },
-      "fullScopeAllowed": true,
-      "nodeReRegistrationTimeout": -1,
-      "defaultClientScopes": [
-        "web-origins"
-      ],
-      "optionalClientScopes": [
-        "roles",
-        "eu.europa.ec.eudi.pid_vc_sd_jwt",
-        "eu.europa.ec.eudi.pid_mso_mdoc",
-        "org.iso.18013.5.1.mDL",
-        "urn:eudi:ehic:1:dc+sd-jwt",
-        "urn:eu.europa.ec.eudi:learning:credential:1:dc+sd-jwt",
-        "urn:forest:owner-company:eaa:1:dc+sd-jwt"
-      ]
-    },
-    {
       "id": "7b9f1de8-7957-4e83-ae31-201719759c56",
       "clientId": "eudiw-abca",
-      "name": "EUDI Reference Wallet (ABCA)",
-      "description": "Development OpenID4VCI client used by the EUDI reference wallet",
+      "name": "Forest-you Wallet (SPRIND sandbox app)",
+      "description": "OpenID4VCI client used by the SPRIND EUDI Wallet sandbox app (the Forest-you wallet)",
       "rootUrl": "",
       "adminUrl": "",
       "baseUrl": "",
@@ -1073,7 +955,6 @@
       "alwaysDisplayInConsole": true,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "eu.europa.ec.euidi://authorization",
         "org.sprind.wallet.sandbox:/authorization"
       ],
       "webOrigins": [
@@ -1111,8 +992,7 @@
         "eu.europa.ec.eudi.pid_mso_mdoc",
         "org.iso.18013.5.1.mDL",
         "urn:eudi:ehic:1:dc+sd-jwt",
-        "urn:eu.europa.ec.eudi:learning:credential:1:dc+sd-jwt",
-        "urn:forest:owner-company:eaa:1:dc+sd-jwt"
+        "urn:eu.europa.ec.eudi:learning:credential:1:dc+sd-jwt"
       ]
     },
     {
@@ -1207,62 +1087,6 @@
         "roles"
       ],
       "optionalClientScopes": []
-    },
-    {
-      "id": "946f2917-2177-4a87-8e4f-463c6972819a",
-      "clientId": "wallet-dev",
-      "name": "Wallet dev client",
-      "description": "A \"relaxed\" client only for development.\nSupports resource owner grant",
-      "rootUrl": "",
-      "adminUrl": "",
-      "baseUrl": "",
-      "surrogateAuthRequired": false,
-      "enabled": true,
-      "alwaysDisplayInConsole": true,
-      "clientAuthenticatorType": "client-secret",
-      "redirectUris": [
-        "urn:ietf:wg:oauth:2.0:oob",
-        "eudi-openid4ci://authorize",
-        "eudi-issuance://authorization",
-        "eu.europa.ec.euidi://authorization"
-      ],
-      "webOrigins": [
-        "/*"
-      ],
-      "notBefore": 0,
-      "bearerOnly": false,
-      "consentRequired": false,
-      "standardFlowEnabled": true,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": true,
-      "serviceAccountsEnabled": false,
-      "publicClient": true,
-      "frontchannelLogout": false,
-      "protocol": "openid-connect",
-      "attributes": {
-        "oidc.ciba.grant.enabled": "false",
-        "backchannel.logout.session.required": "false",
-        "post.logout.redirect.uris": "+",
-        "oauth2.device.authorization.grant.enabled": "false",
-        "display.on.consent.screen": "false",
-        "backchannel.logout.revoke.offline.tokens": "false",
-        "require.pushed.authorization.requests": "true",
-        "pkce.code.challenge.method": "S256"
-      },
-      "authenticationFlowBindingOverrides": {},
-      "fullScopeAllowed": true,
-      "nodeReRegistrationTimeout": -1,
-      "defaultClientScopes": [
-        "web-origins"
-      ],
-      "optionalClientScopes": [
-        "roles",
-        "eu.europa.ec.eudi.pid_vc_sd_jwt",
-        "eu.europa.ec.eudi.pid_mso_mdoc",
-        "org.iso.18013.5.1.mDL",
-        "urn:eudi:ehic:1:dc+sd-jwt",
-        "urn:eu.europa.ec.eudi:learning:credential:1:dc+sd-jwt"
-      ]
     }
   ],
   "clientScopes": [
@@ -2011,36 +1835,6 @@
             "access.token.claim": "false",
             "claim.name": "email",
             "jsonType.label": "String"
-          }
-        }
-      ]
-    },
-    {
-      "id": "b4ee3118-578b-47ea-adc8-230b89ff007e",
-      "name": "urn:forest:owner-company:eaa:1:dc+sd-jwt",
-      "description": "Forest Owner Company EAA issuance scope",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true",
-        "gui.order": "",
-        "consent.screen.text": "Do you consent to issue a Forest Owner Company EAA?"
-      },
-      "protocolMappers": [
-        {
-          "id": "c4f120b3-9d73-4f11-9af0-f2ca14440528",
-          "name": "Forest Credential Offer issuer_state",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usersessionmodel-note-mapper",
-          "consentRequired": false,
-          "config": {
-            "user.session.note": "issuer_state",
-            "claim.name": "issuer_state",
-            "jsonType.label": "String",
-            "id.token.claim": "false",
-            "access.token.claim": "true",
-            "userinfo.token.claim": "false",
-            "introspection.token.claim": "true"
           }
         }
       ]
