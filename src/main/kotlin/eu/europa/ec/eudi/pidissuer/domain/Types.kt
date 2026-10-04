@@ -58,8 +58,7 @@ typealias CredentialIssuerId = HttpsUrl
 
 data class ImageUri(val uri: URI, val alternativeText: String? = null)
 
-@JvmInline
-value class BackgroundImage(val uri: URI)
+data class BackgroundImage(val uri: URI, val alternativeText: String? = null)
 
 data class DisplayName(val name: String, val locale: Locale)
 typealias Color = String
