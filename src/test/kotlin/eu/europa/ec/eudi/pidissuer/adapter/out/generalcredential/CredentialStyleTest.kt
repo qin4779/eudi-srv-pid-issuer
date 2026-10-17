@@ -26,6 +26,7 @@ import eu.europa.ec.eudi.pidissuer.domain.KeyAttestationRequirement
 import eu.europa.ec.eudi.pidissuer.port.input.toTransferObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
 import java.net.URI
 import java.util.Locale
 import javax.imageio.ImageIO
@@ -40,10 +41,10 @@ class CredentialStyleTest {
     fun `display metadata carries logo and background image with alt text`() {
         val display = CredentialDisplay(
             DisplayName("Forest Owner Company Certificate", Locale.ENGLISH),
-            logo = ImageUri(URI.create("https://localhost/pid-issuer/public/img/forest-you/credential-logo.png"), "Logo"),
+            logo = ImageUri(URI.create("https://localhost/pid-issuer/public/credential-logo.png"), "Logo"),
             backgroundColor = "#DDE8D8",
             backgroundImage = BackgroundImage(
-                URI.create("https://localhost/pid-issuer/public/img/forest-you/credential-background.png"),
+                URI.create("https://localhost/pid-issuer/public/credential-background.png"),
                 "Alpine peak",
             ),
         ).toTransferObject()
@@ -72,17 +73,16 @@ class CredentialStyleTest {
     }
 
     @Test
-    fun `bundled card assets meet the wallet styling guidance`() {
-        val logoBytes = assertNotNull(javaClass.getResourceAsStream("/public/img/forest-you/credential-logo.png")).readBytes()
+    fun `card assets meet the wallet styling guidance`() {
+        // The deployment's images, served under /public/ from config/pid-issuer/assets.
+        val logoBytes = File("../../config/pid-issuer/assets/credential-logo.png").readBytes()
         assertTrue(logoBytes.size <= 150 * 1024, "logo must be at most 150 KB")
         val logo = ImageIO.read(logoBytes.inputStream())
         assertTrue(logo.width >= 80 && logo.height >= 60, "logo must be at least 80x60")
         assertTrue(logo.colorModel.hasAlpha(), "logo should have a transparent background")
         assertEquals(4 * logo.height, 3 * logo.width, "logo should be 4:3")
 
-        val backgroundBytes = assertNotNull(
-            javaClass.getResourceAsStream("/public/img/forest-you/credential-background.png"),
-        ).readBytes()
+        val backgroundBytes = File("../../config/pid-issuer/assets/credential-background.png").readBytes()
         assertTrue(backgroundBytes.size <= 150 * 1024, "background image must be at most 150 KB")
         val background = ImageIO.read(backgroundBytes.inputStream())
         assertEquals(4 * background.height, 3 * background.width, "background image should be 4:3")
