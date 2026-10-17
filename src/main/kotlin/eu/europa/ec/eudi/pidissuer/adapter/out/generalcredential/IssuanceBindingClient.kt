@@ -20,7 +20,7 @@ import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.awaitBody
 
 /**
- * Callback into the Forest debug-ui, which owns the actual business data (who was
+ * Callback into forest-portal, which owns the actual business data (who was
  * approved, and with which attributes). The wire protocol is credential-type
  * agnostic: `{subject}` in, `{credentialConfigurationId, credentialAttributes:
  * <map>}` out. The subject is the `sub` of the wallet's access token: every

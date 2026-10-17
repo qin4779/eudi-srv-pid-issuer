@@ -89,8 +89,8 @@ services:
       - ISSUER_KEYCLOAK_USERNAME=admin
       - ISSUER_KEYCLOAK_PASSWORD=password
       - ISSUER_KEYCLOAK_USER_REALM=pid-issuer-realm
-      - ISSUER_FORESTOWNERCOMPANY_BINDING_URL=http://forest-debug-ui:8088/internal/issuance-bindings
-      - ISSUER_FORESTOWNERCOMPANY_BINDING_SECRET=${FOREST_BINDING_SECRET:-forest-binding-dev-secret}
+      - ISSUER_FOREST_BINDING_URL=http://forest-portal:8088/internal/issuance-bindings
+      - ISSUER_FOREST_BINDING_SECRET=${FOREST_BINDING_SECRET:-forest-binding-dev-secret}
       - ISSUER_ACCESS_TOKEN_TYPE=Bearer
       - ISSUER_DPOP_PROOF_MAX_AGE=PT1M
       - ISSUER_DPOP_CACHE_PURGE_INTERVAL=PT10M
