@@ -19,6 +19,7 @@ import org.springframework.boot.context.properties.source.ConfigurationPropertyS
 import org.springframework.core.env.PropertiesPropertySource
 import org.springframework.core.env.StandardEnvironment
 import org.springframework.core.env.SystemEnvironmentPropertySource
+import java.io.File
 import java.util.Properties
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -60,7 +61,9 @@ class CredentialSchemaLoaderTest {
 
     @Test
     fun `every json file in the schema directory is one credential, named after the file`() {
-        assertEquals(listOf("forest_owner_schema"), CredentialSchemaLoader.discover("file:../../schemas/").map { it.name })
+        // The deployment's schemas/ directory, whatever credentials it currently holds.
+        val deployed = File("../../schemas").listFiles { file -> file.extension == "json" }!!.map { it.nameWithoutExtension }
+        assertEquals(deployed.sorted(), CredentialSchemaLoader.discover("file:../../schemas/").map { it.name })
         assertEquals(
             listOf("graduation-certificate-1.0.2.schema"),
             CredentialSchemaLoader.discover("classpath:credential-schemas").map { it.name },

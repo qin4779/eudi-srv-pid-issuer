@@ -95,11 +95,12 @@ class CreateCredentialsOffer(
     operator fun invoke(
         unvalidatedCredentialConfigurationIds: Set<CredentialConfigurationId>,
         customCredentialsOfferUri: String? = null,
-        issuerState: String? = null,
     ): Either<CreateCredentialsOfferError, URI> = either {
-        require(issuerState == null || issuerState.isNotBlank()) { "issuerState cannot be blank" }
-        val credentialConfigurationIds = validate(metadata, unvalidatedCredentialConfigurationIds)
-        val offer = authorizationCodeGrantOffer(metadata, credentialConfigurationIds, issuerState)
+        val offer = run {
+            val credentialConfigurationIds =
+                validate(metadata, unvalidatedCredentialConfigurationIds)
+            authorizationCodeGrantOffer(metadata, credentialConfigurationIds)
+        }
 
         Either.catch {
             Uri.parse(customCredentialsOfferUri ?: credentialsOfferUri)
@@ -143,10 +144,8 @@ private fun Raise<CreateCredentialsOfferError>.validate(
 private fun authorizationCodeGrantOffer(
     metadata: CredentialIssuerMetaData,
     credentialConfigurationIds: NonEmptySet<CredentialConfigurationId>,
-    issuerState: String?,
 ): CredentialsOfferTO {
     val authorizationCode = AuthorizationCodeTO(
-        issuerState = issuerState,
         authorizationServer = metadata.authorizationServers.firstOrNull()?.externalForm,
     )
     return CredentialsOfferTO(

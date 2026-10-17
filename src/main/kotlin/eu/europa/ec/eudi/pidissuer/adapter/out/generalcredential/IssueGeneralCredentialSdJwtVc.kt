@@ -83,7 +83,7 @@ internal class IssueGeneralCredentialSdJwtVc(
                 notificationId,
             ),
         )
-        completeBinding(boundCredential.issuerState, boundCredential.subject)
+        completeBinding(boundCredential.subject)
         CredentialResponse.Issued(issuedCredentials, notificationId)
     }
 

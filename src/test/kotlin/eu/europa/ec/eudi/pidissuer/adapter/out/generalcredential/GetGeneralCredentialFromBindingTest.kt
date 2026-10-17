@@ -38,11 +38,10 @@ class GetGeneralCredentialFromBindingTest {
         accessToken = BearerAccessToken("token"),
         scopes = nonEmptySetOf(scope),
         subject = "subject",
-        issuerState = "issuer-state",
     )
 
-    private fun binding(credentialConfigurationId: String) = ClaimForestIssuanceBinding { issuerState, _ ->
-        ClaimedForestIssuanceBinding("dy-k7m2", issuerState!!, credentialConfigurationId, approvedAttributes)
+    private fun binding(credentialConfigurationId: String) = ClaimForestIssuanceBinding { _ ->
+        ClaimedForestIssuanceBinding("dy-k7m2", credentialConfigurationId, approvedAttributes)
     }
 
     @Test

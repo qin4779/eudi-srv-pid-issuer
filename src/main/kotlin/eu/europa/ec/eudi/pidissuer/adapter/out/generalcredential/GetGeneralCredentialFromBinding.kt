@@ -21,7 +21,6 @@ import eu.europa.ec.eudi.pidissuer.port.input.AuthorizationContext
 data class BoundGeneralCredential(
     val schema: CredentialSchemaDefinition,
     val attributes: Map<String, String>,
-    val issuerState: String,
     val subject: String,
 )
 
@@ -45,7 +44,7 @@ class GetGeneralCredentialFromBinding(
 ) : GetGeneralCredential {
     override suspend fun invoke(context: AuthorizationContext): BoundGeneralCredential {
         val subject = requireNotNull(context.subject) { "Missing sub in the access token" }
-        val binding = bindingClient.claim(context.issuerState, subject)
+        val binding = bindingClient.claim(subject)
         require(binding.username == context.username) {
             "The mobile Keycloak username does not match the desktop issuance binding"
         }
@@ -65,7 +64,6 @@ class GetGeneralCredentialFromBinding(
         return BoundGeneralCredential(
             schema = schema,
             attributes = attributes,
-            issuerState = binding.issuerState,
             subject = subject,
         )
     }

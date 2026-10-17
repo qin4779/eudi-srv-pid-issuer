@@ -91,9 +91,8 @@ class IssuerUi(
             .map(::CredentialConfigurationId)
             .toSet()
         val credentialsOfferUri = formData["credentialsOfferUri"]?.firstOrNull { it.isNotBlank() }
-        val issuerState = formData["issuerState"]?.firstOrNull { it.isNotBlank() }
 
-        return createCredentialsOffer(credentialIds, credentialsOfferUri, issuerState).map { credentialsOffer ->
+        return createCredentialsOffer(credentialIds, credentialsOfferUri).map { credentialsOffer ->
             log.info("Successfully generated Credentials Offer")
 
             val qrCode =

@@ -28,5 +28,4 @@ data class AuthorizationContext(
     val scopes: NonEmptySet<Scope>,
     val clientId: ClientId? = null,
     val subject: String? = null,
-    val issuerState: String? = null,
 )

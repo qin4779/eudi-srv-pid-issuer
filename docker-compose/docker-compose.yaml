@@ -7,8 +7,8 @@ networks:
 services:
   keycloak:
     build:
-      context: ../../keycloak-issuer-state-provider
-    image: forest/keycloak-issuer-state:26.4.7
+      context: ../../keycloak
+    image: forest/keycloak:26.4.7
     container_name: keycloak
     command:
       - start-dev

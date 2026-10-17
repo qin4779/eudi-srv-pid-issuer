@@ -45,18 +45,13 @@ class IssuerApi(
 
     private suspend fun handleCreateCredentialsOffer(request: ServerRequest): ServerResponse {
         log.info("Generating Credentials Offer")
-        val requestBody = request.awaitBodyOrNull<CreateCredentialsOfferRequestTO>()
-        val credentialIds = requestBody
+        val credentialIds = request.awaitBodyOrNull<CreateCredentialsOfferRequestTO>()
             ?.credentialIds
             .orEmpty()
             .map(::CredentialConfigurationId)
             .toSet()
 
-        val issuerState = requestBody?.issuerState
-        return createCredentialsOffer(
-            credentialIds,
-            issuerState = issuerState,
-        ).fold(
+        return createCredentialsOffer(credentialIds).fold(
             ifRight = { credentialsOffer ->
                 val qrCode = generateQrCode(
                     credentialsOffer,
@@ -82,7 +77,6 @@ class IssuerApi(
 @Serializable
 private data class CreateCredentialsOfferRequestTO(
     @SerialName("credentialIds") val credentialIds: Set<String>? = null,
-    @SerialName("issuerState") val issuerState: String? = null,
 )
 
 @Serializable
