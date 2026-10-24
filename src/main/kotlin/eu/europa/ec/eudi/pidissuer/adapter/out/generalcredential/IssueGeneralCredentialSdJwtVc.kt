@@ -39,10 +39,9 @@ import org.slf4j.LoggerFactory
 import kotlin.time.Duration
 
 /**
- * Generic replacement for the old `IssueForestOwnerCompanyCredential`: same
- * `IssueSpecificCredential` contract every credential type implements, but the
- * credential's shape (claims, id, vct, scope, display name) comes from a
- * [CredentialSchemaDefinition] instead of being compiled in.
+ * The `IssueSpecificCredential` contract every credential type implements,
+ * with the credential's shape (claims, id, vct, scope, display name) taken
+ * from a [CredentialSchemaDefinition] instead of being compiled in.
  */
 internal class IssueGeneralCredentialSdJwtVc(
     override val supportedCredential: CredentialConfiguration,

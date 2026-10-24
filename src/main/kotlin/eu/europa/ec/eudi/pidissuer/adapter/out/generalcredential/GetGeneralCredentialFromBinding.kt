@@ -29,9 +29,9 @@ fun interface GetGeneralCredential {
 }
 
 /**
- * Generic replacement for the old `GetForestOwnerCompanyCredentialFromBinding`:
- * instead of five named `requiredAttribute("lei_code")` calls, it walks
- * [schema]'s claim list and requires whichever ones are `mandatory`.
+ * Returns the attributes forest-portal approved for the wallet's temporary
+ * account, whichever credential type [schema] describes, and requires every
+ * claim the schema lists as `mandatory`.
  *
  * The binding must also have been approved for this very credential type. A
  * wallet may add further optional scopes to its authorization request, so the

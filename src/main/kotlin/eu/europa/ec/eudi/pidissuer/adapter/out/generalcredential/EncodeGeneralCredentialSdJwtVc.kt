@@ -32,10 +32,8 @@ import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 /**
- * Generic replacement for the old `EncodeForestOwnerCompanyCredential`: the
- * per-field `sdClaim("lei_code", credential.leiCode)` calls become one loop
- * over [schema]'s claim list, driven by whatever attributes the binding
- * returned.
+ * Encodes a credential of any type: one loop over [schema]'s claim list,
+ * driven by whatever attributes the binding returned.
  */
 internal class EncodeGeneralCredentialSdJwtVc(
     private val schema: CredentialSchemaDefinition,
