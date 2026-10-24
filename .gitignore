@@ -38,3 +38,7 @@ out/
 
 ### Local runtime credentials ###
 runtime-keys/
+
+### Forest tests: kept local, never committed or pushed ###
+src/test/kotlin/eu/europa/ec/eudi/pidissuer/adapter/out/generalcredential/
+src/test/resources/credential-schemas/
