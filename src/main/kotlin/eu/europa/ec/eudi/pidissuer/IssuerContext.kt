@@ -1258,7 +1258,11 @@ private suspend fun WebClient.authorizationServerSupportedDPoPJWSAlgorithms(auth
             .bodyToMono<String>()
             .timeout(5.seconds.toJavaDuration())
             .awaitSingle()
-        OIDCProviderMetadata.parse(metadata).dPoPJWSAlgs?.toNonEmptySetOrNull()
+        // Keycloak also advertises RSA and EdDSA algorithms, which the DPoP proof
+        // verifier refuses at start-up: only the EC ones (ES256/384/512) are used.
+        OIDCProviderMetadata.parse(metadata).dPoPJWSAlgs
+            ?.filter { it in JWSAlgorithm.Family.EC }
+            ?.toNonEmptySetOrNull()
     }.getOrElse {
         log.warn("Unable to fetch Authorization Server metadata. DPoP support will be disabled.", it)
         null
