@@ -9,14 +9,7 @@ FROM eclipse-temurin:17-jre-jammy
 WORKDIR /opt/forest-issuer
 COPY --from=build /workspace/build/libs/pid-issuer-0.9.1.jar /opt/forest-issuer/pid-issuer.jar
 
-RUN keytool -genkeypair -noprompt -alias issuance -keyalg EC -groupname secp256r1 \
-      -sigalg SHA256withECDSA -dname "CN=Forest EAA Issuer" -validity 3650 \
-      -storetype JKS -keystore /keystore.jks -storepass forestkeys2026 -keypass issuance2026 && \
-    keytool -genkeypair -noprompt -alias access-certificate -keyalg EC -groupname secp256r1 \
-      -sigalg SHA256withECDSA -dname "CN=Forest EAA Access" -validity 3650 \
-      -storetype JKS -keystore /keystore.jks -storepass forestkeys2026 -keypass accesscert2026 && \
-    keytool -genkeypair -noprompt -alias request-encryption -keyalg EC -groupname secp256r1 \
-      -sigalg SHA256withECDSA -dname "CN=Forest EAA Request Encryption" -validity 3650 \
-      -storetype JKS -keystore /keystore.jks -storepass forestkeys2026 -keypass requestenc2026
-
+# No keys in the image: a keystore generated here changed with every build, and
+# wallets then rejected the newly signed metadata. The keystore is mounted from
+# pid-issuer/config/keystore.jks instead (see docker-compose.yml).
 ENTRYPOINT ["java", "-jar", "/opt/forest-issuer/pid-issuer.jar"]
