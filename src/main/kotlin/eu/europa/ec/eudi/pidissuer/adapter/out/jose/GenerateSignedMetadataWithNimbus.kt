@@ -22,6 +22,7 @@ import com.nimbusds.jose.crypto.RSASSASigner
 import com.nimbusds.jose.jwk.*
 import com.nimbusds.jose.util.Base64
 import com.nimbusds.jose.util.JSONObjectUtils
+import com.nimbusds.jwt.SignedJWT
 import eu.europa.ec.eudi.pidissuer.adapter.out.x509.dropRootCA
 import eu.europa.ec.eudi.pidissuer.domain.Clock
 import eu.europa.ec.eudi.pidissuer.domain.CredentialIssuerId
@@ -43,16 +44,35 @@ value class AccessCertificate(val key: JWK) {
 }
 
 /**
+ * The issuer's registration certificate: a compact JWT the Registrar signs over the
+ * credential types the issuer declared it will issue. It is passed on unchanged.
+ */
+@JvmInline
+value class RegistrationCertificate(val jwt: String) {
+    init {
+        require(runCatching { SignedJWT.parse(jwt) }.isSuccess) {
+            "a registration certificate must be a signed JWT in compact form"
+        }
+    }
+}
+
+/**
  * Nimbus implementation of [GenerateSignedMetadata].
+ *
+ * With a [registrationCertificate], the signed payload carries it at the top level as
+ * `issuer_info: [{"format": "registration_cert", "data": <JWT>}]`, the way
+ * ETSI TS 119 472-3 (clause 4.2.3) lets a wallet read the issuer's registration.
  */
 internal class GenerateSignedMetadataWithNimbus(
     private val clock: Clock,
     private val signedMetadataIssuer: HttpsUrl,
     private val credentialIssuerId: CredentialIssuerId,
     private val accessCertificate: AccessCertificate,
+    private val registrationCertificate: RegistrationCertificate? = null,
 ) : GenerateSignedMetadata {
     override fun invoke(metadata: JsonObject): String {
         val payload = (metadata - "signed_metadata").buildUpon {
+            registrationCertificate?.let { put("issuer_info", it.toIssuerInfo()) }
             put("iat", clock.now().epochSeconds)
             put("iss", signedMetadataIssuer.externalForm)
             put("sub", credentialIssuerId.externalForm)
@@ -72,6 +92,14 @@ private fun Map<String, JsonElement>.buildUpon(builder: JsonObjectBuilder.() -> 
     }
 
 private fun JsonObject.toPayload(): Payload = Payload(JSONObjectUtils.parse(Json.encodeToString(this)))
+
+private fun RegistrationCertificate.toIssuerInfo(): JsonArray =
+    buildJsonArray {
+        addJsonObject {
+            put("format", "registration_cert")
+            put("data", jwt)
+        }
+    }
 
 private fun AccessCertificate.jwsHeader(customizer: JWSHeader.Builder.() -> Unit = {}): JWSHeader =
     JWSHeader.Builder(signingAlgorithm())

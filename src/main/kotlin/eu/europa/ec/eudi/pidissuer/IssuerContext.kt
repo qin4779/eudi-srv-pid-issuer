@@ -36,9 +36,9 @@ import eu.europa.ec.eudi.pidissuer.adapter.input.web.security.*
 import eu.europa.ec.eudi.pidissuer.adapter.out.IssuerSigningKey
 import eu.europa.ec.eudi.pidissuer.adapter.out.credential.*
 import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.CredentialIssuanceOverrides
-import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.CredentialStyle
 import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.CredentialSchemaLoader
 import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.CredentialSchemaSource
+import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.CredentialStyle
 import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.ForestIssuanceBindingClient
 import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.GetGeneralCredentialFromBinding
 import eu.europa.ec.eudi.pidissuer.adapter.out.generalcredential.IssueGeneralCredentialSdJwtVc
@@ -472,11 +472,25 @@ fun beans(clock: Clock) = BeanRegistrarDsl {
             ?.let { requireNotNull(HttpsUrl.of(it)) { "'issuer.signed-metadata.issuer' is not a valid HttpsUrl" } }
             ?: issuerPublicUrl
 
+        // The Registrar's registration certificate (a JWT file), carried in the signed metadata's issuer_info.
+        val registrationCertificate = env.getProperty("issuer.registration-certificate")
+            ?.takeIf { it.isNotBlank() }
+            ?.trim()
+            ?.let { location ->
+                val resource = DefaultResourceLoader().getResource(location)
+                check(resource.exists()) {
+                    "'issuer.registration-certificate' points to '$location', which does not exist"
+                }
+                log.info("Loading registration certificate for signed metadata from: '{}'", location)
+                RegistrationCertificate(resource.inputStream.use { it.readAllBytes().decodeToString() }.trim())
+            }
+
         GenerateSignedMetadataWithNimbus(
             clock = bean(),
             signedMetadataIssuer = signedMetadataIssuer,
             credentialIssuerId = bean<CredentialIssuerMetaData>().id,
             accessCertificate = bean(),
+            registrationCertificate = registrationCertificate,
         )
     }
     if (enableStatusList) {
